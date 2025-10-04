@@ -15,10 +15,18 @@ class TelegramController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $telegrams = Telegram::all();
+            $telegrams = Telegram::all()->paginate(10);
             return response()->json([
                 'message' => 'Telegram IDs obtenidos correctamente',
-                'data' => $telegrams
+                'data' => $telegrams,
+                'pagination' => [
+                    'total' => $telegrams->total(),
+                    'per_page' => $telegrams->perPage(),
+                    'current_page' => $telegrams->currentPage(),
+                    'last_page' => $telegrams->lastPage(),
+                    'from' => $telegrams->firstItem(),
+                    'to' => $telegrams->lastItem()
+                ]
             ]);
         } catch (\Exception $e) {
             return response()->json([

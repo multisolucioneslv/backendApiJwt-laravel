@@ -14,10 +14,18 @@ class CategoryController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $categories = Category::all();
+            $categories = Category::paginate(10);
             return response()->json([
                 'message' => 'Categorías obtenidas correctamente',
-                'data' => $categories
+                'data' => $categories,
+                'pagination' => [
+                    'total' => $categories->total(),
+                    'per_page' => $categories->perPage(),
+                    'current_page' => $categories->currentPage(),
+                    'last_page' => $categories->lastPage(),
+                    'from' => $categories->firstItem(),
+                    'to' => $categories->lastItem()
+                ]
             ]);
         } catch (\Exception $e) {
             return response()->json([

@@ -9,6 +9,7 @@ use App\Http\Controllers\SexController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\ProductoController;
+use App\Http\Controllers\UserController;
 
 Route::get('/', function () {
     return response()->json(['message' => 'Ingresa tus credenciales para continuar']);
@@ -80,5 +81,13 @@ Route::middleware('jwt')->group(function () {
         'show' => 'productos.show',
         'update' => 'productos.update',
         'destroy' => 'productos.destroy'
+    ]);
+
+    Route::apiResource('users', UserController::class)->names([
+        'index' => 'users.index',
+        'store' => 'users.store',
+        'show' => 'users.show',
+        'update' => 'users.update',
+        'destroy' => 'users.destroy'
     ]);
 });

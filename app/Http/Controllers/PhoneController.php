@@ -15,10 +15,18 @@ class PhoneController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $phones = Phone::all();
+            $phones = Phone::all()->paginate(10);
             return response()->json([
                 'message' => 'Teléfonos obtenidos correctamente',
-                'data' => $phones
+                'data' => $phones,
+                'pagination' => [
+                    'total' => $phones->total(),
+                    'per_page' => $phones->perPage(),
+                    'current_page' => $phones->currentPage(),
+                    'last_page' => $phones->lastPage(),
+                    'from' => $phones->firstItem(),
+                    'to' => $phones->lastItem()
+                ]
             ]);
         } catch (\Exception $e) {
             return response()->json([

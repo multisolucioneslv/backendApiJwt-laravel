@@ -16,10 +16,18 @@ class SucursaleController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $sucursales = Sucursale::with('user')->get();
+            $sucursales = Sucursale::with('user')->paginate(10);
             return response()->json([
                 'message' => 'Sucursales obtenidas correctamente',
-                'data' => $sucursales
+                'data' => $sucursales,
+                'pagination' => [
+                    'total' => $sucursales->total(),
+                    'per_page' => $sucursales->perPage(),
+                    'current_page' => $sucursales->currentPage(),
+                    'last_page' => $sucursales->lastPage(),
+                    'from' => $sucursales->firstItem(),
+                    'to' => $sucursales->lastItem()
+                ]
             ]);
         } catch (\Exception $e) {
             return response()->json([

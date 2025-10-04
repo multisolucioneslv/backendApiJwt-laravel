@@ -15,10 +15,18 @@ class SexController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $sexes = Sex::all();
+            $sexes = Sex::all()->paginate(10);
             return response()->json([
                 'message' => 'Sexos obtenidos correctamente',
-                'data' => $sexes
+                'data' => $sexes,
+                'pagination' => [
+                    'total' => $sexes->total(),
+                    'per_page' => $sexes->perPage(),
+                    'current_page' => $sexes->currentPage(),
+                    'last_page' => $sexes->lastPage(),
+                    'from' => $sexes->firstItem(),
+                    'to' => $sexes->lastItem()
+                ]
             ]);
         } catch (\Exception $e) {
             return response()->json([

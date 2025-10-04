@@ -15,10 +15,18 @@ class CustomerController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $customers = Customer::with(['phone', 'telegram', 'user', 'sex'])->get();
+            $customers = Customer::with(['phone', 'telegram', 'user', 'sex'])->paginate(10);
             return response()->json([
                 'message' => 'Clientes obtenidos correctamente',
-                'data' => $customers
+                'data' => $customers,
+                'pagination' => [
+                    'total' => $customers->total(),
+                    'per_page' => $customers->perPage(),
+                    'current_page' => $customers->currentPage(),
+                    'last_page' => $customers->lastPage(),
+                    'from' => $customers->firstItem(),
+                    'to' => $customers->lastItem()
+                ]
             ]);
         } catch (\Exception $e) {
             return response()->json([

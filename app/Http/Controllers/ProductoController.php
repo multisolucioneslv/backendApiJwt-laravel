@@ -14,10 +14,18 @@ class ProductoController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $productos = Producto::all();
+            $productos = Producto::paginate(10);
             return response()->json([
                 'message' => 'Productos obtenidos correctamente',
-                'data' => $productos
+                'data' => $productos,
+                'pagination' => [
+                    'total' => $productos->total(),
+                    'per_page' => $productos->perPage(),
+                    'current_page' => $productos->currentPage(),
+                    'last_page' => $productos->lastPage(),
+                    'from' => $productos->firstItem(),
+                    'to' => $productos->lastItem()
+                ]
             ]);
         } catch (\Exception $e) {
             return response()->json([
