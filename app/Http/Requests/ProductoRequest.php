@@ -23,10 +23,14 @@ class ProductoRequest extends FormRequest
     {
         return [
             'name' => 'required|string|max:100',
+            'codigo' => 'nullable|string|max:50|unique:productos,codigo',
+            'qr' => 'nullable|string',
             'description' => 'nullable|string|max:255',
             'price' => 'required|numeric|min:0',
             'stock' => 'required|integer|min:0',
-            'image' => 'nullable|string|max:255'
+            'image' => 'nullable|string|max:255',
+            'images' => 'nullable|array',
+            'images.*' => 'nullable|string'
         ];
     }
 
@@ -38,6 +42,8 @@ class ProductoRequest extends FormRequest
         return [
             'name.required' => 'El nombre del producto es obligatorio.',
             'name.max' => 'El nombre no puede exceder 100 caracteres.',
+            'codigo.max' => 'El código de barras no puede exceder 50 caracteres.',
+            'codigo.unique' => 'Este código de barras ya está registrado.',
             'description.max' => 'La descripción no puede exceder 255 caracteres.',
             'price.required' => 'El precio del producto es obligatorio.',
             'price.numeric' => 'El precio debe ser un número válido.',

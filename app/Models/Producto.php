@@ -12,10 +12,17 @@ class Producto extends Model
 
     protected $fillable = [
         'name',
+        'codigo',
+        'qr',
         'description',
         'price',
         'stock',
         'image',
+        'images',
+    ];
+
+    protected $casts = [
+        'images' => 'array',
     ];
     
 }
