@@ -10,6 +10,13 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\CotizacionController;
+use App\Http\Controllers\Admin\SystemTypeController;
+use App\Http\Controllers\Admin\SystemModuleController;
+use App\Http\Controllers\Admin\UserSystemAccessController;
+use App\Http\Controllers\Admin\SystemConfigurationController;
+use App\Http\Controllers\InitialConfigurationController;
+use App\Http\Controllers\DateTimeController;
 
 Route::get('/', function () {
     return response()->json(['message' => 'Ingresa tus credenciales para continuar']);
@@ -18,6 +25,25 @@ Route::get('/', function () {
 // Rutas públicas
 Route::post('/register', [AuthController::class, 'register'])->name('auth.register');
 Route::post('/login', [AuthController::class, 'login'])->name('auth.login');
+
+// Rutas de configuración inicial (públicas)
+Route::get('/initial-config/status', [InitialConfigurationController::class, 'checkStatus'])->name('initial-config.status');
+Route::get('/initial-config/public', [InitialConfigurationController::class, 'getPublicConfigurations'])->name('initial-config.public');
+Route::post('/initial-config/mark-completed', [InitialConfigurationController::class, 'markAsCompleted'])->name('initial-config.mark-completed');
+Route::post('/initial-config/reset', [InitialConfigurationController::class, 'reset'])->name('initial-config.reset');
+
+// Rutas de fecha y hora
+Route::get('/datetime/current', [DateTimeController::class, 'getCurrentDateTime'])->name('datetime.current');
+Route::post('/reports/create', [DateTimeController::class, 'createReport'])->name('reports.create');
+
+// Rutas de configuración de zona horaria
+Route::get('/timezone/current', [DateTimeController::class, 'getTimezone'])->name('timezone.current');
+Route::post('/timezone/set', [DateTimeController::class, 'setTimezone'])->name('timezone.set');
+Route::get('/timezone/available', [DateTimeController::class, 'getAvailableTimezones'])->name('timezone.available');
+
+// Rutas públicas para setup inicial
+Route::get('/system-types/public', [SystemTypeController::class, 'getPublicSystemTypes'])->name('system-types.public');
+Route::get('/system-modules/public/{systemTypeId}', [SystemModuleController::class, 'getPublicModulesBySystemType'])->name('system-modules.public');
 
 // Rutas protegidas con JWT
 Route::middleware('jwt')->group(function () {
@@ -90,4 +116,70 @@ Route::middleware('jwt')->group(function () {
         'update' => 'users.update',
         'destroy' => 'users.destroy'
     ]);
+
+    Route::apiResource('cotizaciones', CotizacionController::class)->names([
+        'index' => 'cotizaciones.index',
+        'store' => 'cotizaciones.store',
+        'show' => 'cotizaciones.show',
+        'update' => 'cotizaciones.update',
+        'destroy' => 'cotizaciones.destroy'
+    ]);
+
+    // Rutas adicionales para cotizaciones
+    Route::patch('cotizaciones/{cotizacion}/estado', [CotizacionController::class, 'actualizarEstado'])->name('cotizaciones.actualizar-estado');
+    Route::get('cotizaciones-estadisticas', [CotizacionController::class, 'estadisticas'])->name('cotizaciones.estadisticas');
+
+    // Rutas de administración del sistema multi-servicio
+    Route::prefix('admin')->group(function () {
+        // Rutas de configuración inicial (solo admin)
+        Route::apiResource('initial-configurations', InitialConfigurationController::class)->names([
+            'index' => 'admin.initial-configurations.index',
+            'store' => 'admin.initial-configurations.store',
+            'show' => 'admin.initial-configurations.show',
+            'update' => 'admin.initial-configurations.update',
+            'destroy' => 'admin.initial-configurations.destroy'
+        ]);
+        
+        // Rutas de tipos de sistema
+        Route::apiResource('system-types', SystemTypeController::class)->names([
+            'index' => 'admin.system-types.index',
+            'store' => 'admin.system-types.store',
+            'show' => 'admin.system-types.show',
+            'update' => 'admin.system-types.update',
+            'destroy' => 'admin.system-types.destroy'
+        ]);
+        
+        Route::post('system-types/{systemType}/toggle', [SystemTypeController::class, 'toggle'])->name('admin.system-types.toggle');
+        Route::post('system-types/{systemType}/set-default', [SystemTypeController::class, 'setDefault'])->name('admin.system-types.set-default');
+        Route::get('system-types-active', [SystemTypeController::class, 'active'])->name('admin.system-types.active');
+
+        // Rutas de módulos del sistema
+        Route::apiResource('system-modules', SystemModuleController::class)->names([
+            'index' => 'admin.system-modules.index',
+            'store' => 'admin.system-modules.store',
+            'show' => 'admin.system-modules.show',
+            'update' => 'admin.system-modules.update',
+            'destroy' => 'admin.system-modules.destroy'
+        ]);
+        
+        Route::get('system-modules/by-system-type/{systemTypeId}', [SystemModuleController::class, 'getBySystemType'])->name('admin.system-modules.by-system-type');
+
+        // Rutas de acceso de usuarios
+        Route::apiResource('user-system-access', UserSystemAccessController::class)->names([
+            'index' => 'admin.user-system-access.index',
+            'store' => 'admin.user-system-access.store',
+            'show' => 'admin.user-system-access.show',
+            'update' => 'admin.user-system-access.update',
+            'destroy' => 'admin.user-system-access.destroy'
+        ]);
+
+        // Rutas de configuraciones del sistema
+        Route::apiResource('system-configurations', SystemConfigurationController::class)->names([
+            'index' => 'admin.system-configurations.index',
+            'store' => 'admin.system-configurations.store',
+            'show' => 'admin.system-configurations.show',
+            'update' => 'admin.system-configurations.update',
+            'destroy' => 'admin.system-configurations.destroy'
+        ]);
+    });
 });

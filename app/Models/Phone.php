@@ -10,8 +10,19 @@ class Phone extends Model
         'phone',
     ];
 
-    public function user()
+    /**
+     * Un teléfono puede pertenecer a muchos usuarios
+     */
+    public function users()
     {
-        return $this->belongsTo(User::class);
+        return $this->hasMany(User::class);
+    }
+
+    /**
+     * Un teléfono puede pertenecer a muchos clientes
+     */
+    public function customers()
+    {
+        return $this->hasMany(Customer::class);
     }
 }

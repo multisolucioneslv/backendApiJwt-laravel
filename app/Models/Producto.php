@@ -25,4 +25,11 @@ class Producto extends Model
         'images' => 'array',
     ];
     
+    /**
+     * Producto tiene muchos items de cotización
+     */
+    public function cotizacionItems()
+    {
+        return $this->hasMany(CotizacionItem::class, 'producto_id');
+    }
 }

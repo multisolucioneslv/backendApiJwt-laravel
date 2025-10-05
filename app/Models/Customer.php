@@ -40,5 +40,11 @@ class Customer extends Model
         return $this->belongsTo(Sex::class);
     }
     
-    
+    /**
+     * Cliente tiene muchas cotizaciones
+     */
+    public function cotizaciones()
+    {
+        return $this->hasMany(Cotizacion::class, 'customer_id');
+    }
 }

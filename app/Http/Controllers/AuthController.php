@@ -86,7 +86,23 @@ class AuthController extends Controller
             if (!$user) {
                 return response()->json(['error' => 'Usuario no encontrado'], 404);
             }
-            return response()->json($user);
+
+            // Cargar los roles del usuario
+            $user->load('roles');
+
+            // Preparar la respuesta con los datos del usuario y sus roles
+            $userData = [
+                'id' => $user->id,
+                'username' => $user->username,
+                'name' => $user->name,
+                'lastname' => $user->lastname,
+                'email' => $user->email,
+                'phone_id' => $user->phone_id,
+                'status' => $user->status,
+                'roles' => $user->roles->pluck('name')->toArray(), // Array de nombres de roles
+            ];
+
+            return response()->json($userData);
         } catch (JWTException $e) {
             return response()->json(['error' => 'Error al obtener el perfil del usuario'], 500);
         }

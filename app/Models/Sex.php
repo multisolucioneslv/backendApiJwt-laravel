@@ -11,8 +11,19 @@ class Sex extends Model
         'inicial',
     ];
 
-    public function user()
+    /**
+     * Un sexo puede pertenecer a muchos usuarios
+     */
+    public function users()
     {
-        return $this->belongsTo(User::class);
+        return $this->hasMany(User::class);
     }
-}   
+
+    /**
+     * Un sexo puede pertenecer a muchos clientes
+     */
+    public function customers()
+    {
+        return $this->hasMany(Customer::class);
+    }
+}
