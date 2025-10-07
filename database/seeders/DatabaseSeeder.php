@@ -35,11 +35,15 @@ class DatabaseSeeder extends Seeder
             'password'  => Hash::make('72900968'),
             'sex_id'    => 1,
         ]);
+        
         $this->call([
+            RolePermissionSeeder::class,  // Roles y permisos
             SucursaleSeeder::class,
             CategorySeeder::class,
             ProductoSeeder::class,
             CustomerSeeder::class,
+            TaxSeeder::class,
+            CotizacionSeeder::class,
         ]);
     }
 }

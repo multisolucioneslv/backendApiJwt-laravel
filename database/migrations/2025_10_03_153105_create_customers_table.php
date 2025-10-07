@@ -15,12 +15,12 @@ return new class extends Migration
             $table->id();
             $table->string('name',50);
             $table->string('lastname',50);
-            $table->string('email');
+            $table->string('email')->nullable();
             $table->foreignId('phone_id')->nullable()->constrained()->onUpdate('cascade')->onDelete('restrict');
             $table->foreignId('telegram_id')->nullable()->constrained()->onUpdate('cascade')->onDelete('restrict');
             $table->foreignId('user_id')->constrained()->onUpdate('cascade')->onDelete('restrict');
             $table->foreignId('sex_id')->constrained()->onUpdate('cascade')->onDelete('restrict');
-            $table->string('address');
+            $table->string('address')->nullable();
             $table->timestamps();
         });
     }

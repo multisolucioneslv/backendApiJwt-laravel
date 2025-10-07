@@ -29,7 +29,7 @@ class CotizacionSeeder extends Seeder
 
         $this->command->info('🚀 Creando cotizaciones de prueba...');
 
-        $estados = ['borrador', 'enviada', 'aprobada', 'rechazada'];
+        $estados = ['generada', 'entregada', 'vendida', 'rechazada'];
 
         // Crear 15 cotizaciones de prueba
         for ($i = 1; $i <= 15; $i++) {

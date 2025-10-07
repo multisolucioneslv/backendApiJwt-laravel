@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Cotizacion;
 use App\Models\CotizacionItem;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -19,26 +19,26 @@ class CotizacionController extends Controller
         try {
             $query = Cotizacion::with(['customer', 'user', 'items.producto']);
 
-            // Filtros opcionales
-            if ($request->has('estado')) {
+            // Filtros
+            if ($request->filled('estado')) {
                 $query->where('estado', $request->estado);
             }
 
-            if ($request->has('customer_id')) {
+            if ($request->filled('customer_id')) {
                 $query->where('customer_id', $request->customer_id);
             }
 
-            if ($request->has('desde_fecha')) {
-                $query->whereDate('fecha_cotizacion', '>=', $request->desde_fecha);
+            if ($request->filled('fecha_desde')) {
+                $query->whereDate('fecha_cotizacion', '>=', $request->fecha_desde);
             }
 
-            if ($request->has('hasta_fecha')) {
-                $query->whereDate('fecha_cotizacion', '<=', $request->hasta_fecha);
+            if ($request->filled('fecha_hasta')) {
+                $query->whereDate('fecha_cotizacion', '<=', $request->fecha_hasta);
             }
 
             // Ordenamiento
-            $ordenarPor = $request->get('ordenar_por', 'created_at');
-            $ordenDireccion = $request->get('orden_direccion', 'desc');
+            $ordenarPor = $request->get('sort_by', 'created_at');
+            $ordenDireccion = $request->get('sort_direction', 'desc');
 
             $cotizaciones = $query->orderBy($ordenarPor, $ordenDireccion)->paginate(10);
 
@@ -67,11 +67,19 @@ class CotizacionController extends Controller
     public function store(Request $request): JsonResponse
     {
         try {
+            \Log::info('Datos recibidos en store:', $request->all());
+            
+            // Validación dinámica: customer_id o nuevo_cliente
             $validated = $request->validate([
-                'customer_id' => 'required|exists:customers,id',
-                'fecha_cotizacion' => 'required|date',
-                'fecha_vencimiento' => 'required|date|after:fecha_cotizacion',
-                'estado' => 'nullable|in:borrador,enviada,aprobada,rechazada,vencida',
+                'customer_id' => 'nullable|exists:customers,id',
+                'nuevo_cliente' => 'nullable|array',
+                'nuevo_cliente.name' => 'required_with:nuevo_cliente|string|max:50',
+                'nuevo_cliente.lastname' => 'required_with:nuevo_cliente|string|max:50',
+                'nuevo_cliente.email' => 'nullable|email',
+                'nuevo_cliente.phone' => 'nullable|string',
+                'nuevo_cliente.company' => 'nullable|string',
+                'nuevo_cliente.address' => 'nullable|string',
+                'estado' => 'nullable|in:generada,entregada,vendida,rechazada',
                 'impuesto' => 'nullable|numeric|min:0',
                 'descuento' => 'nullable|numeric|min:0',
                 'notas' => 'nullable|string',
@@ -84,16 +92,52 @@ class CotizacionController extends Controller
                 'items.*.descripcion' => 'nullable|string',
             ]);
 
+            \Log::info('Datos validados:', $validated);
+
+            // Validar que se proporcione customer_id o nuevo_cliente
+            if (!$validated['customer_id'] && !isset($validated['nuevo_cliente'])) {
+                return response()->json([
+                    'error' => 'Debe proporcionar un cliente existente o datos para un nuevo cliente'
+                ], 422);
+            }
+
             DB::beginTransaction();
+
+            // Si es un nuevo cliente, crearlo primero
+            $customerId = $validated['customer_id'];
+            
+            if (isset($validated['nuevo_cliente'])) {
+                // Crear o encontrar el teléfono si se proporciona
+                $phoneId = 1; // Default
+                if (!empty($validated['nuevo_cliente']['phone'])) {
+                    $phone = Phone::firstOrCreate(
+                        ['phone' => $validated['nuevo_cliente']['phone']]
+                    );
+                    $phoneId = $phone->id;
+                }
+                
+                $nuevoCliente = Customer::create([
+                    'name' => $validated['nuevo_cliente']['name'],
+                    'lastname' => $validated['nuevo_cliente']['lastname'],
+                    'email' => $validated['nuevo_cliente']['email'] ?? null,
+                    'phone_id' => $phoneId,
+                    'telegram_id' => 1, // Default telegram
+                    'user_id' => Auth::id(),
+                    'sex_id' => 1, // Default sex
+                    'address' => $validated['nuevo_cliente']['address'] ?? null,
+                ]);
+                
+                $customerId = $nuevoCliente->id;
+            }
 
             // Crear la cotización
             $cotizacion = Cotizacion::create([
                 'numero_cotizacion' => Cotizacion::generarNumeroCotizacion(),
-                'customer_id' => $validated['customer_id'],
+                'customer_id' => $customerId,
                 'user_id' => Auth::id(),
-                'fecha_cotizacion' => $validated['fecha_cotizacion'],
-                'fecha_vencimiento' => $validated['fecha_vencimiento'],
-                'estado' => $validated['estado'] ?? 'borrador',
+                'fecha_cotizacion' => now()->toDateString(),
+                'fecha_vencimiento' => now()->addDays(30)->toDateString(),
+                'estado' => $validated['estado'] ?? 'generada',
                 'impuesto' => $validated['impuesto'] ?? 0,
                 'descuento' => $validated['descuento'] ?? 0,
                 'notas' => $validated['notas'] ?? null,
@@ -101,19 +145,30 @@ class CotizacionController extends Controller
             ]);
 
             // Crear los items
-            foreach ($validated['items'] as $item) {
+            $subtotal = 0;
+            foreach ($validated['items'] as $itemData) {
+                $itemSubtotal = ($itemData['cantidad'] * $itemData['precio_unitario']) - ($itemData['descuento'] ?? 0);
+                $subtotal += $itemSubtotal;
+
                 CotizacionItem::create([
                     'cotizacion_id' => $cotizacion->id,
-                    'producto_id' => $item['producto_id'],
-                    'cantidad' => $item['cantidad'],
-                    'precio_unitario' => $item['precio_unitario'],
-                    'descuento' => $item['descuento'] ?? 0,
-                    'descripcion' => $item['descripcion'] ?? null,
+                    'producto_id' => $itemData['producto_id'],
+                    'cantidad' => $itemData['cantidad'],
+                    'precio_unitario' => $itemData['precio_unitario'],
+                    'descuento' => $itemData['descuento'] ?? 0,
+                    'descripcion' => $itemData['descripcion'] ?? null,
+                    'subtotal' => $itemSubtotal,
                 ]);
             }
 
             // Calcular totales
-            $cotizacion->calcularTotal();
+            $impuestoMonto = $subtotal * ($cotizacion->impuesto / 100);
+            $total = $subtotal + $impuestoMonto - $cotizacion->descuento;
+
+            $cotizacion->update([
+                'subtotal' => $subtotal,
+                'total' => $total
+            ]);
 
             DB::commit();
 
@@ -122,12 +177,6 @@ class CotizacionController extends Controller
                 'data' => $cotizacion->load(['customer', 'user', 'items.producto'])
             ], 201);
 
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            DB::rollBack();
-            return response()->json([
-                'error' => 'Datos de validación incorrectos',
-                'detalles' => $e->errors()
-            ], 422);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -139,12 +188,23 @@ class CotizacionController extends Controller
     /**
      * Mostrar una cotización específica
      */
-    public function show(Cotizacion $cotizacion): JsonResponse
+    public function show($id): JsonResponse
     {
         try {
+            // Usar enfoque directo sin route model binding
+            $cotizacion = Cotizacion::withoutTrashed()
+                ->with(['customer', 'user', 'items.producto'])
+                ->find($id);
+
+            if (!$cotizacion) {
+                return response()->json([
+                    'error' => 'Cotización no encontrada'
+                ], 404);
+            }
+
             return response()->json([
                 'mensaje' => 'Cotización obtenida correctamente',
-                'data' => $cotizacion->load(['customer', 'user', 'items.producto'])
+                'data' => $cotizacion
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -161,9 +221,7 @@ class CotizacionController extends Controller
         try {
             $validated = $request->validate([
                 'customer_id' => 'nullable|exists:customers,id',
-                'fecha_cotizacion' => 'nullable|date',
-                'fecha_vencimiento' => 'nullable|date',
-                'estado' => 'nullable|in:borrador,enviada,aprobada,rechazada,vencida',
+                'estado' => 'nullable|in:generada,entregada,vendida,rechazada',
                 'impuesto' => 'nullable|numeric|min:0',
                 'descuento' => 'nullable|numeric|min:0',
                 'notas' => 'nullable|string',
@@ -182,8 +240,6 @@ class CotizacionController extends Controller
             // Actualizar datos básicos de la cotización
             $cotizacion->update([
                 'customer_id' => $validated['customer_id'] ?? $cotizacion->customer_id,
-                'fecha_cotizacion' => $validated['fecha_cotizacion'] ?? $cotizacion->fecha_cotizacion,
-                'fecha_vencimiento' => $validated['fecha_vencimiento'] ?? $cotizacion->fecha_vencimiento,
                 'estado' => $validated['estado'] ?? $cotizacion->estado,
                 'impuesto' => $validated['impuesto'] ?? $cotizacion->impuesto,
                 'descuento' => $validated['descuento'] ?? $cotizacion->descuento,
@@ -193,23 +249,34 @@ class CotizacionController extends Controller
 
             // Actualizar items si se proporcionan
             if (isset($validated['items'])) {
-                // Eliminar items anteriores
+                // Eliminar items existentes
                 $cotizacion->items()->delete();
 
                 // Crear nuevos items
-                foreach ($validated['items'] as $item) {
+                $subtotal = 0;
+                foreach ($validated['items'] as $itemData) {
+                    $itemSubtotal = ($itemData['cantidad'] * $itemData['precio_unitario']) - ($itemData['descuento'] ?? 0);
+                    $subtotal += $itemSubtotal;
+
                     CotizacionItem::create([
                         'cotizacion_id' => $cotizacion->id,
-                        'producto_id' => $item['producto_id'],
-                        'cantidad' => $item['cantidad'],
-                        'precio_unitario' => $item['precio_unitario'],
-                        'descuento' => $item['descuento'] ?? 0,
-                        'descripcion' => $item['descripcion'] ?? null,
+                        'producto_id' => $itemData['producto_id'],
+                        'cantidad' => $itemData['cantidad'],
+                        'precio_unitario' => $itemData['precio_unitario'],
+                        'descuento' => $itemData['descuento'] ?? 0,
+                        'descripcion' => $itemData['descripcion'] ?? null,
+                        'subtotal' => $itemSubtotal,
                     ]);
                 }
 
                 // Recalcular totales
-                $cotizacion->calcularTotal();
+                $impuestoMonto = $subtotal * ($cotizacion->impuesto / 100);
+                $total = $subtotal + $impuestoMonto - $cotizacion->descuento;
+
+                $cotizacion->update([
+                    'subtotal' => $subtotal,
+                    'total' => $total
+                ]);
             }
 
             DB::commit();
@@ -219,12 +286,6 @@ class CotizacionController extends Controller
                 'data' => $cotizacion->load(['customer', 'user', 'items.producto'])
             ]);
 
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            DB::rollBack();
-            return response()->json([
-                'error' => 'Datos de validación incorrectos',
-                'detalles' => $e->errors()
-            ], 422);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -252,13 +313,40 @@ class CotizacionController extends Controller
     }
 
     /**
-     * Cambiar el estado de una cotización
+     * Eliminar múltiples cotizaciones
+     */
+    public function bulkDelete(Request $request): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'ids' => 'required|array|min:1',
+                'ids.*' => 'required|integer|exists:cotizaciones,id'
+            ]);
+
+            $cantidad = count($validated['ids']);
+            
+            // Eliminar las cotizaciones (soft delete)
+            Cotizacion::whereIn('id', $validated['ids'])->delete();
+
+            return response()->json([
+                'mensaje' => "$cantidad cotización" . ($cantidad > 1 ? 'es eliminadas' : ' eliminada') . " correctamente",
+                'cantidad' => $cantidad
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Error al eliminar las cotizaciones: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Actualizar estado de una cotización
      */
     public function actualizarEstado(Request $request, Cotizacion $cotizacion): JsonResponse
     {
         try {
             $validated = $request->validate([
-                'estado' => 'required|in:borrador,enviada,aprobada,rechazada,vencida'
+                'estado' => 'required|in:generada,entregada,vendida,rechazada'
             ]);
 
             $cotizacion->update(['estado' => $validated['estado']]);
@@ -281,13 +369,12 @@ class CotizacionController extends Controller
     {
         try {
             $stats = [
-                'total' => Cotizacion::count(),
-                'borrador' => Cotizacion::where('estado', 'borrador')->count(),
-                'enviada' => Cotizacion::where('estado', 'enviada')->count(),
-                'aprobada' => Cotizacion::where('estado', 'aprobada')->count(),
-                'rechazada' => Cotizacion::where('estado', 'rechazada')->count(),
-                'vencida' => Cotizacion::where('estado', 'vencida')->count(),
-                'monto_total_aprobadas' => Cotizacion::where('estado', 'aprobada')->sum('total'),
+                'total' => Cotizacion::withoutTrashed()->count(),
+                'generada' => Cotizacion::withoutTrashed()->where('estado', 'generada')->count(),
+                'entregada' => Cotizacion::withoutTrashed()->where('estado', 'entregada')->count(),
+                'vendida' => Cotizacion::withoutTrashed()->where('estado', 'vendida')->count(),
+                'rechazada' => Cotizacion::withoutTrashed()->where('estado', 'rechazada')->count(),
+                'monto_total_vendidas' => Cotizacion::withoutTrashed()->where('estado', 'vendida')->sum('total'),
             ];
 
             return response()->json([

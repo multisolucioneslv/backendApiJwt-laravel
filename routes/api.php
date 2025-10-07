@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\UserSystemAccessController;
 use App\Http\Controllers\Admin\SystemConfigurationController;
 use App\Http\Controllers\InitialConfigurationController;
 use App\Http\Controllers\DateTimeController;
+use App\Http\Controllers\TaxController;
 
 Route::get('/', function () {
     return response()->json(['message' => 'Ingresa tus credenciales para continuar']);
@@ -117,6 +118,11 @@ Route::middleware('jwt')->group(function () {
         'destroy' => 'users.destroy'
     ]);
 
+    // Rutas específicas de cotizaciones ANTES del apiResource
+    Route::get('cotizaciones/estadisticas', [CotizacionController::class, 'estadisticas'])->name('cotizaciones.estadisticas');
+    Route::post('cotizaciones/bulk-delete', [CotizacionController::class, 'bulkDelete'])->name('cotizaciones.bulk-delete');
+    Route::patch('cotizaciones/{cotizacion}/estado', [CotizacionController::class, 'actualizarEstado'])->name('cotizaciones.actualizar-estado');
+
     Route::apiResource('cotizaciones', CotizacionController::class)->names([
         'index' => 'cotizaciones.index',
         'store' => 'cotizaciones.store',
@@ -125,9 +131,15 @@ Route::middleware('jwt')->group(function () {
         'destroy' => 'cotizaciones.destroy'
     ]);
 
-    // Rutas adicionales para cotizaciones
-    Route::patch('cotizaciones/{cotizacion}/estado', [CotizacionController::class, 'actualizarEstado'])->name('cotizaciones.actualizar-estado');
-    Route::get('cotizaciones-estadisticas', [CotizacionController::class, 'estadisticas'])->name('cotizaciones.estadisticas');
+    // Rutas para impuestos
+    Route::get('taxes/active', [TaxController::class, 'getActive'])->name('taxes.active');
+    Route::apiResource('taxes', TaxController::class)->names([
+        'index' => 'taxes.index',
+        'store' => 'taxes.store',
+        'show' => 'taxes.show',
+        'update' => 'taxes.update',
+        'destroy' => 'taxes.destroy'
+    ]);
 
     // Rutas de administración del sistema multi-servicio
     Route::prefix('admin')->group(function () {

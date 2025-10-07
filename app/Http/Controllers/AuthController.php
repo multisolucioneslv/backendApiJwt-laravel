@@ -11,9 +11,10 @@ use Tymon\JWTAuth\Facades\JWTAuth;
 use Tymon\JWTAuth\Exceptions\JWTException;
 use App\Http\Requests\RegisterRequest;
 use App\Http\Requests\UpdateUserRequest;
+use Illuminate\Http\JsonResponse;
 class AuthController extends Controller
 {
-    public function register(RegisterRequest $request)
+    public function register(RegisterRequest $request): JsonResponse
     {
         $user = User::create([
             'username' => $request->username,
@@ -39,7 +40,7 @@ class AuthController extends Controller
         ], 201);
     }
 
-    public function login(Request $request)
+    public function login(Request $request): JsonResponse
     {
         if($request->username){
             $credentials = $request->only('username', 'password');
@@ -64,7 +65,7 @@ class AuthController extends Controller
         ]);
     }
 
-    public function logout()
+    public function logout(): JsonResponse
     {
         try {
             JWTAuth::invalidate(JWTAuth::getToken());
@@ -79,7 +80,7 @@ class AuthController extends Controller
         ]);
     }
 
-    public function getUser()
+    public function getUser(): JsonResponse
     {
         try {
             $user = Auth::user();
@@ -108,7 +109,7 @@ class AuthController extends Controller
         }
     }
 
-    public function updateUser(UpdateUserRequest $request)
+    public function updateUser(UpdateUserRequest $request): JsonResponse
     {
         try {
             $user = Auth::user();
